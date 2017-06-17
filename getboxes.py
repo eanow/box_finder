@@ -6,13 +6,17 @@ from fractions import Fraction
 import json
 import sys
 from PyQt4 import QtGui, QtCore
+import time
+from datetime import date
+import webbrowser
 
 class BoxEntry:
     def __init__(self):
-        self.dims=list()
+        self.length=0
+        self.width=0
+        self.depth=0
         self.product_id=''
 
-        
 class BoxFinder(QtGui.QWidget):
     def __init__(self):
         super(BoxFinder,self).__init__()
@@ -23,12 +27,10 @@ class BoxFinder(QtGui.QWidget):
         try:
             self.LoadDatabase()
         except:
-            self.setWindowTitle('Box Finder - Box Database not present')
-        #self.test_button.clicked.connect(self.tree_widget.test)
-        
+            self.setWindowTitle('Box Finder - Box Database Not Present')
         
     def initUI(self):
-        self.setGeometry(300, 300, 520, 600)
+        self.setGeometry(300, 300, 1120, 600)
         self.setWindowTitle('Box Finder')
         #layout
         self.layout = QtGui.QVBoxLayout(self)
@@ -49,6 +51,13 @@ class BoxFinder(QtGui.QWidget):
         #outputs
         self.stock_output=QtGui.QTableWidget()
         self.over_output=QtGui.QTableWidget()
+        #output specification
+        self.box_count=QtGui.QLineEdit()
+        self.cut_down_yes=QtGui.QRadioButton('Assume Cut Down')
+        self.cut_down_yes.setChecked(True)
+        self.cut_down_no=QtGui.QRadioButton('No Cut Down')
+        self.count_label=QtGui.QLabel('Number of Boxed to Find:')
+        self.box_count.setText('10')
         #arrange elements
         self.input_row=QtGui.QHBoxLayout()
         self.input_row.addWidget(self.length_label)
@@ -60,22 +69,54 @@ class BoxFinder(QtGui.QWidget):
         self.button_row=QtGui.QHBoxLayout()
         self.button_row.addWidget(self.scrape_button)
         self.button_row.addWidget(self.find_button)
+        self.options_row=QtGui.QHBoxLayout()
+        self.options_row.addWidget(self.cut_down_yes)
+        self.options_row.addWidget(self.cut_down_no)
+        self.options_row.addWidget(self.count_label)
+        self.options_row.addWidget(self.box_count)
         self.layout.addWidget(self.unit_label)
         self.layout.addLayout(self.input_row)
+        self.layout.addLayout(self.options_row)
         self.layout.addLayout(self.button_row)
         self.layout.addWidget(self.stock_label)
         self.layout.addWidget(self.stock_output)
         self.layout.addWidget(self.over_label)
         self.layout.addWidget(self.over_output)
         #connections
+        self.scrape_button.clicked.connect(self.ScrapeInventory)
+        self.find_button.clicked.connect(self.FindBoxes)
+        self.stock_output.itemClicked.connect(self.OpenPage)
+        self.over_output.itemClicked.connect(self.OpenPage)
         self.show()
     
     def LoadDatabase(self):
+        self.box_db=dict()
+        self.box_db['stock']=list()
+        self.box_db['over']=list()
         #load box db
         infile=open('box_db.json','r')
         serial_box=json.loads(infile.read())
         infile.close()
-        box_db=deserialize_boxes(serial_box)
+        try:
+            for key in serial_box['stock'].keys():
+                this_box=BoxEntry()
+                this_box.length=serial_box['stock'][key]['l']
+                this_box.width=serial_box['stock'][key]['w']
+                this_box.depth=serial_box['stock'][key]['d']
+                this_box.product_id=key
+                self.box_db['stock'].append(this_box)
+            self.box_db['date']=serial_box['date']
+            for key in serial_box['over'].keys():
+                this_box=BoxEntry()
+                this_box.length=serial_box['over'][key]['l']
+                this_box.width=serial_box['over'][key]['w']
+                this_box.depth=serial_box['over'][key]['d']
+                this_box.product_id=key.encode("utf8")
+                self.box_db['over'].append(this_box)
+            self.setWindowTitle('Box Finder Database Date: '+self.box_db['date'])
+        except:
+            print 'Load of database failed'
+            return
      
     def ScrapeInventory(self):
         #scrape the webpage to get the links to the two box types
@@ -108,37 +149,86 @@ class BoxFinder(QtGui.QWidget):
         matches=re.finditer(stock_type,stock_page)
         #check each
         for match in matches:
-            stock_type_list.append(match.group(1))
-        stock_type_list.append('http://www.serviceboxandtape.com/moving-supplies/MovingBoxes.asp')
+            stock_list_pages.append(match.group(1))
+        #manually add moving boxes- it doesn't fit the regex
+        stock_list_pages.append('http://www.serviceboxandtape.com/moving-supplies/MovingBoxes.asp')
         #page 2 of stock
         stock_page=str(requests.get(stock_url).text+'&page=2')
-
         matches=re.finditer(stock_type,stock_page)
         #check each
         for match in matches:
-            stock_type_list.append(match.group(1))
-
+            stock_list_pages.append(match.group(1))
+            
+        #overrun
+        over_page=str(requests.get(over_url).text)
+        #overrun listing pages
+        over_list_pages=list()
+        over_type='(http://www.serviceboxandtape.com/pc_product_detail.asp\?key=[0-9A-F]+)"></a>'
+        matches=re.finditer(over_type,over_page)
+        #check each
+        for match in matches:
+            over_list_pages.append(match.group(1))
 
         #build box database
-        box_db=list()
-        for page in stock_type_list:
+        #set date
+        self.box_db['date']=date.today().strftime("%d %B %Y")
+        self.box_db['stock']=list()
+        self.box_db['over']=list()
+        for page in stock_list_pages:
             try:
                 print 'fetching product page: '+page
                 page_text=requests.get(page).text
-                box_db.extend(get_boxes(page_text))
+                self.box_db['stock'].extend(self.GetBoxes(page_text))
+            except:
+                print 'issue with url: '+page
+        
+        for page in over_list_pages:
+            try:
+                print 'fetching product page: '+page
+                page_text=requests.get(page).text
+                self.box_db['over'].extend(self.GetBoxes(page_text))
             except:
                 print 'issue with url: '+page
             
-        print len(box_db)
-        #make box list unique
-        #assume product ids are unique
-        product_list=list()
-        for box in box_db:
-            product_list.append(box.product_id)
-        product_list=list(set(product_list))
-        print len(product_list),'Unique boxes recorded'
+        print len(self.box_db['stock']),len(self.box_db['over'])
+        #self.setWindowTitle('Box Finder Database Date: '+self.box_db['date'])
+        self.LoadDatabase()
+       
+    def GetBoxes(self,page_text):
+        box_type='(http://www.serviceboxandtape.com/pc_product_detail.asp\?key=)([0-9A-F]+)">([0-9]+[ ]*[0-9/]*[ ]*x[ ]*[0-9]+[ ]*[0-9/]*[ ]*x[ ]*[0-9]+[ ]*[0-9/]*)'
+        matches=re.finditer(box_type,page_text)
+        match_list=[n for n in matches]
+        box_list=list()
+        for item in match_list:
+            this_box=BoxEntry()
+            #get just the hex
+            this_box.product_id=item.group(2).encode("utf8")
+            dims=item.group(3).split('x')
+            #fix fractions
+            this_box.length=float(sum(Fraction(s) for s in dims[0].split()))
+            this_box.width=float(sum(Fraction(s) for s in dims[1].split()))
+            this_box.depth=float(sum(Fraction(s) for s in dims[2].split()))
+            box_list.append(this_box)
+        print len(box_list)
+        return box_list
+    
+    def SaveBoxes(self):
+        serial_box=dict()
+        serial_box['date']=self.box_db['date']
+        serial_box['stock']=dict()
+        for box in self.box_db['stock']:
+            serial_box['stock'][box.product_id]=dict()
+            serial_box['stock'][box.product_id]['l']=box.length
+            serial_box['stock'][box.product_id]['w']=box.width
+            serial_box['stock'][box.product_id]['d']=box.depth
+        serial_box['over']=dict()
+        for box in self.box_db['over']:
+            serial_box['over'][box.product_id]=dict()
+            serial_box['over'][box.product_id]['l']=box.length
+            serial_box['over'][box.product_id]['w']=box.width
+            serial_box['over'][box.product_id]['d']=box.depth
         #save json
-        save_string=json.dumps(serialize_boxes(box_db))
+        save_string=json.dumps(serial_box)
         #open file
         try:
             outfile=open('box_db.json','w')
@@ -147,85 +237,70 @@ class BoxFinder(QtGui.QWidget):
         except:
             print 'save failed'
 
-       
-    def get_boxes(self,page_text):
-        box_type='(http://www.serviceboxandtape.com/pc_product_detail.asp\?key=)([0-9A-F]+)">([0-9]+[ ]*[0-9/]*[ ]*x[ ]*[0-9]+[ ]*[0-9/]*[ ]*x[ ]*[0-9]+[ ]*[0-9/]*[ ]*)'
-        matches=re.finditer(box_type,page_text)
-        match_list=[n for n in matches]
-        box_list=list()
-        for item in match_list:
-            this_box=BoxEntry()
-            this_box.product_id=item.group(2).encode("utf8")
-            dims=item.group(3).split('x')
-            #print dims
-            #fix fractions
-            for ii in range(3):
-                this_box.dims.append(float(sum(Fraction(s) for s in dims[ii].split())))
-            box_list.append(this_box)
-        print len(box_list)
-        return box_list
-    
-    def serialize_boxes(self,box_db):
-        serial_box=dict()
-        for box in box_db:
-            serial_box[box.product_id]=dict()
-            serial_box[box.product_id]['x']=box.dims[0]
-            serial_box[box.product_id]['y']=box.dims[1]
-            serial_box[box.product_id]['z']=box.dims[2]
-        return serial_box
-
-    def deserialize_boxes(self,serial_box):
-        box_db=list()
-        for key in list(serial_box.keys()):
-            this_box=BoxEntry()
-            this_box.product_id=key
-            this_box.dims.append(serial_box[key]['x'])
-            this_box.dims.append(serial_box[key]['y'])
-            this_box.dims.append(serial_box[key]['z'])
-            box_db.append(this_box)
-        return(box_db)
-    
-
-    
-
-#scrape_and_save()
-#box_x=int(raw_input('Length (in): '))
-#box_y=int(raw_input('Width (in): '))
-#box_z=int(raw_input('Height (in): '))
-
-
-    def FindBoxes(self):
-        print 'finding boxes that fit'
-
-        obj_dim=list()
-        obj_dim.append(box_x)
-        obj_dim.append(box_y)
-        obj_dim.append(box_z)
-        obj_dim.sort()
-        print obj_dim
+    def ProcessType(self,type_key,output,obj_dim,box_count):
+        #search stock boxes
         fit_list=dict()
-        for box in box_db:
+        for box in self.box_db[type_key]:
             #does this box fit?
             #arrange dimensions in order
-            box_dim=box.dims
+            box_dim=[box.length,box.width,box.depth]
             box_dim.sort()
             #print box_dim
-            box_vol=box_dim[0]*box_dim[1]*box_dim[2]
+            box_size=box.length*box.width
             #check each dimension
             if box_dim[0]>=obj_dim[0]:
                 if box_dim[1]>=obj_dim[1]:
                     if box_dim[2]>=obj_dim[2]:
                         fit_list[box.product_id]=dict()
-                        fit_list[box.product_id]['vol']=box_vol
-                        fit_list[box.product_id]['x']=box.dims[0]
-                        fit_list[box.product_id]['y']=box.dims[1]
-                        fit_list[box.product_id]['z']=box.dims[2]
+                        fit_list[box.product_id]['size']=box_size
+                        fit_list[box.product_id]['l']=box.length
+                        fit_list[box.product_id]['w']=box.width
+                        fit_list[box.product_id]['d']=box.depth
 
         print len(fit_list.keys()),'boxes will contain the object.'
-        print 'Here are the 10 smallest by volume:'
-        for key_item in sorted(fit_list, key=fit_list.__getitem__)[0:10]:
-            box_url='http://www.serviceboxandtape.com/pc_product_detail.asp?key='+key_item
-            print box_url,str(fit_list[key_item]['x'])+' x '+str(fit_list[key_item]['y'])+' x '+str(fit_list[key_item]['z']),fit_list[key_item]['vol']
+        #print 'Here are the 10 smallest:'
+        #ok, there is a 'pythonic' way to do this with lambda and some list comprehension- but I need this to be understandable by future me.
+        #make dummy list of just id's and sizes
+        small_list=dict()
+        for key in fit_list:
+            small_list[key]=fit_list[key]['size']
+        #for product_id in sorted(small_list, key=small_list.__getitem__)[0:10]:
+        #    box_url='http://www.serviceboxandtape.com/pc_product_detail.asp?key='+product_id
+        #    print box_url,str(fit_list[product_id]['l'])+' x '+str(fit_list[product_id]['w'])+' x '+str(fit_list[product_id]['d']),fit_list[product_id]['size']
+        #set up table
+        output.setColumnCount(4)
+        output.setSortingEnabled(True)
+        table_rows=list()
+        for product_id in sorted(small_list, key=small_list.__getitem__):
+            dims=str(fit_list[product_id]['l'])+' x '+str(fit_list[product_id]['w'])+' x '+str(fit_list[product_id]['d'])
+            vol=fit_list[product_id]['d']*fit_list[product_id]['w']*fit_list[product_id]['l']
+            table_rows.append([QtGui.QTableWidgetItem(str(product_id)),QtGui.QTableWidgetItem(dims),QtGui.QTableWidgetItem(str(fit_list[product_id]['size'])),QtGui.QTableWidgetItem(str(vol))])
+        output.setRowCount(min(box_count,len(table_rows)))
+        output.setHorizontalHeaderLabels(QtCore.QString("Product ID;Dimensions;Opening Area;Volume").split(';'))
+        for ii in xrange(min(box_count,len(table_rows))):
+            output.setItem(ii,0,table_rows[ii][0])
+            output.setItem(ii,1,table_rows[ii][1])
+            output.setItem(ii,2,table_rows[ii][2])
+            output.setItem(ii,3,table_rows[ii][3])
+        output.horizontalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
+        
+    def FindBoxes(self):
+        print 'finding boxes that fit'
+        box_count=int(str(self.box_count.text()))
+        obj_dim=list()
+        obj_dim.append(float(str(self.input_length.text())))
+        obj_dim.append(float(str(self.input_width.text())))
+        obj_dim.append(float(str(self.input_depth.text())))
+        obj_dim.sort()
+        
+        self.ProcessType('stock',self.stock_output,obj_dim,box_count)
+        self.ProcessType('over',self.over_output,obj_dim,box_count)
+        #webbrowser.open('https://google.com/')
+    
+    def OpenPage(self,item):
+        print str(item.text())
+        webbrowser.open('http://www.serviceboxandtape.com/pc_product_detail.asp?key='+str(item.text()))
+            
     
     
 def main():
