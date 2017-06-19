@@ -192,6 +192,7 @@ class BoxFinder(QtWidgets.QWidget):
             
         print(str(len(self.box_db['stock']))+' '+str(len(self.box_db['over'])))
         #self.setWindowTitle('Box Finder Database Date: '+self.box_db['date'])
+        self.SaveBoxes()
         self.LoadDatabase()
        
     def GetBoxes(self,page_text):
@@ -217,16 +218,16 @@ class BoxFinder(QtWidgets.QWidget):
         serial_box['date']=self.box_db['date']
         serial_box['stock']=dict()
         for box in self.box_db['stock']:
-            serial_box['stock'][box.product_id]=dict()
-            serial_box['stock'][box.product_id]['l']=box.length
-            serial_box['stock'][box.product_id]['w']=box.width
-            serial_box['stock'][box.product_id]['d']=box.depth
+            serial_box['stock'][str(box.product_id)]=dict()
+            serial_box['stock'][str(box.product_id)]['l']=box.length
+            serial_box['stock'][str(box.product_id)]['w']=box.width
+            serial_box['stock'][str(box.product_id)]['d']=box.depth
         serial_box['over']=dict()
         for box in self.box_db['over']:
-            serial_box['over'][box.product_id]=dict()
-            serial_box['over'][box.product_id]['l']=box.length
-            serial_box['over'][box.product_id]['w']=box.width
-            serial_box['over'][box.product_id]['d']=box.depth
+            serial_box['over'][str(box.product_id)]=dict()
+            serial_box['over'][str(box.product_id)]['l']=box.length
+            serial_box['over'][str(box.product_id)]['w']=box.width
+            serial_box['over'][str(box.product_id)]['d']=box.depth
         #save json
         save_string=json.dumps(serial_box)
         #open file
