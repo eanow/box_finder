@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-from lxml import html
 import requests
 import re
 from fractions import Fraction
