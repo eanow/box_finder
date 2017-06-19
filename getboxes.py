@@ -1,11 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 from lxml import html
 import requests
 import re
 from fractions import Fraction
 import json
 import sys
-from PyQt4 import QtGui, QtCore
+from PyQt5 import QtWidgets, QtWidgets, QtCore
 import time
 from datetime import date
 import webbrowser
@@ -17,7 +17,7 @@ class BoxEntry:
         self.depth=0
         self.product_id=''
 
-class BoxFinder(QtGui.QWidget):
+class BoxFinder(QtWidgets.QWidget):
     def __init__(self):
         super(BoxFinder,self).__init__()
         
@@ -33,43 +33,43 @@ class BoxFinder(QtGui.QWidget):
         self.setGeometry(300, 300, 1120, 600)
         self.setWindowTitle('Box Finder')
         #layout
-        self.layout = QtGui.QVBoxLayout(self)
+        self.layout = QtWidgets.QVBoxLayout(self)
         #buttons
-        self.scrape_button=QtGui.QPushButton("Scrape Inventory")
-        self.find_button=QtGui.QPushButton("Locate Boxes")
+        self.scrape_button=QtWidgets.QPushButton("Scrape Inventory")
+        self.find_button=QtWidgets.QPushButton("Locate Boxes")
         #input
-        self.input_length=QtGui.QLineEdit()
-        self.input_width=QtGui.QLineEdit()
-        self.input_depth=QtGui.QLineEdit()
+        self.input_length=QtWidgets.QLineEdit()
+        self.input_width=QtWidgets.QLineEdit()
+        self.input_depth=QtWidgets.QLineEdit()
         #labels
-        self.length_label=QtGui.QLabel('Desired Length:')
-        self.width_label=QtGui.QLabel('Desired Width:')
-        self.depth_label=QtGui.QLabel('Desired Depth:')
-        self.unit_label=QtGui.QLabel('All units are assumed inches with decimals, i.e. 4.5')
-        self.stock_label=QtGui.QLabel('Stock Boxes:')
-        self.over_label=QtGui.QLabel('Overrun Boxes:')
+        self.length_label=QtWidgets.QLabel('Desired Length:')
+        self.width_label=QtWidgets.QLabel('Desired Width:')
+        self.depth_label=QtWidgets.QLabel('Desired Depth:')
+        self.unit_label=QtWidgets.QLabel('All units are assumed inches with decimals, i.e. 4.5')
+        self.stock_label=QtWidgets.QLabel('Stock Boxes:')
+        self.over_label=QtWidgets.QLabel('Overrun Boxes:')
         #outputs
-        self.stock_output=QtGui.QTableWidget()
-        self.over_output=QtGui.QTableWidget()
+        self.stock_output=QtWidgets.QTableWidget()
+        self.over_output=QtWidgets.QTableWidget()
         #output specification
-        self.box_count=QtGui.QLineEdit()
-        self.cut_down_yes=QtGui.QRadioButton('Assume Cut Down')
+        self.box_count=QtWidgets.QLineEdit()
+        self.cut_down_yes=QtWidgets.QRadioButton('Assume Cut Down')
         self.cut_down_yes.setChecked(True)
-        self.cut_down_no=QtGui.QRadioButton('No Cut Down')
-        self.count_label=QtGui.QLabel('Number of Boxed to Find:')
+        self.cut_down_no=QtWidgets.QRadioButton('No Cut Down')
+        self.count_label=QtWidgets.QLabel('Number of Boxed to Find:')
         self.box_count.setText('10')
         #arrange elements
-        self.input_row=QtGui.QHBoxLayout()
+        self.input_row=QtWidgets.QHBoxLayout()
         self.input_row.addWidget(self.length_label)
         self.input_row.addWidget(self.input_length)
         self.input_row.addWidget(self.width_label)
         self.input_row.addWidget(self.input_width)
         self.input_row.addWidget(self.depth_label)
         self.input_row.addWidget(self.input_depth)
-        self.button_row=QtGui.QHBoxLayout()
+        self.button_row=QtWidgets.QHBoxLayout()
         self.button_row.addWidget(self.scrape_button)
         self.button_row.addWidget(self.find_button)
-        self.options_row=QtGui.QHBoxLayout()
+        self.options_row=QtWidgets.QHBoxLayout()
         self.options_row.addWidget(self.cut_down_yes)
         self.options_row.addWidget(self.cut_down_no)
         self.options_row.addWidget(self.count_label)
@@ -111,11 +111,11 @@ class BoxFinder(QtGui.QWidget):
                 this_box.length=serial_box['over'][key]['l']
                 this_box.width=serial_box['over'][key]['w']
                 this_box.depth=serial_box['over'][key]['d']
-                this_box.product_id=key.encode("utf8")
+                this_box.product_id=key
                 self.box_db['over'].append(this_box)
             self.setWindowTitle('Box Finder Database Date: '+self.box_db['date'])
         except:
-            print 'Load of database failed'
+            print('Load of database failed')
             return
      
     def ScrapeInventory(self):
@@ -176,21 +176,21 @@ class BoxFinder(QtGui.QWidget):
         self.box_db['over']=list()
         for page in stock_list_pages:
             try:
-                print 'fetching product page: '+page
+                print('fetching product page: '+str(page))
                 page_text=requests.get(page).text
                 self.box_db['stock'].extend(self.GetBoxes(page_text))
             except:
-                print 'issue with url: '+page
+                print('issue with url: '+str(page))
         
         for page in over_list_pages:
             try:
-                print 'fetching product page: '+page
+                print('fetching product page: '+str(page))
                 page_text=requests.get(page).text
                 self.box_db['over'].extend(self.GetBoxes(page_text))
             except:
-                print 'issue with url: '+page
+                print('issue with url: '+str(page))
             
-        print len(self.box_db['stock']),len(self.box_db['over'])
+        print(str(len(self.box_db['stock']))+' '+str(len(self.box_db['over'])))
         #self.setWindowTitle('Box Finder Database Date: '+self.box_db['date'])
         self.LoadDatabase()
        
@@ -209,7 +209,7 @@ class BoxFinder(QtGui.QWidget):
             this_box.width=float(sum(Fraction(s) for s in dims[1].split()))
             this_box.depth=float(sum(Fraction(s) for s in dims[2].split()))
             box_list.append(this_box)
-        print len(box_list)
+        print(str(len(box_list)))
         return box_list
     
     def SaveBoxes(self):
@@ -235,7 +235,7 @@ class BoxFinder(QtGui.QWidget):
             outfile.write(save_string)
             outfile.close()
         except:
-            print 'save failed'
+            print('save failed')
 
     def ProcessType(self,type_key,output,obj_dim,box_count):
         #search stock boxes
@@ -245,7 +245,6 @@ class BoxFinder(QtGui.QWidget):
             #arrange dimensions in order
             box_dim=[box.length,box.width,box.depth]
             box_dim.sort()
-            #print box_dim
             box_size=box.length*box.width
             #check each dimension
             if box_dim[0]>=obj_dim[0]:
@@ -257,8 +256,8 @@ class BoxFinder(QtGui.QWidget):
                         fit_list[box.product_id]['w']=box.width
                         fit_list[box.product_id]['d']=box.depth
 
-        print len(fit_list.keys()),'boxes will contain the object.'
-        #print 'Here are the 10 smallest:'
+        print(str(len(fit_list.keys()))+' boxes will contain the object.')
+        
         #ok, there is a 'pythonic' way to do this with lambda and some list comprehension- but I need this to be understandable by future me.
         #make dummy list of just id's and sizes
         small_list=dict()
@@ -266,7 +265,7 @@ class BoxFinder(QtGui.QWidget):
             small_list[key]=fit_list[key]['size']
         #for product_id in sorted(small_list, key=small_list.__getitem__)[0:10]:
         #    box_url='http://www.serviceboxandtape.com/pc_product_detail.asp?key='+product_id
-        #    print box_url,str(fit_list[product_id]['l'])+' x '+str(fit_list[product_id]['w'])+' x '+str(fit_list[product_id]['d']),fit_list[product_id]['size']
+        
         #set up table
         output.setColumnCount(4)
         output.setSortingEnabled(True)
@@ -274,18 +273,21 @@ class BoxFinder(QtGui.QWidget):
         for product_id in sorted(small_list, key=small_list.__getitem__):
             dims=str(fit_list[product_id]['l'])+' x '+str(fit_list[product_id]['w'])+' x '+str(fit_list[product_id]['d'])
             vol=fit_list[product_id]['d']*fit_list[product_id]['w']*fit_list[product_id]['l']
-            table_rows.append([QtGui.QTableWidgetItem(str(product_id)),QtGui.QTableWidgetItem(dims),QtGui.QTableWidgetItem(str(fit_list[product_id]['size'])),QtGui.QTableWidgetItem(str(vol))])
+            table_rows.append([QtWidgets.QTableWidgetItem(str(product_id)),QtWidgets.QTableWidgetItem(dims),FloatTableWidgetItem(fit_list[product_id]['size']),FloatTableWidgetItem(vol)])
         output.setRowCount(min(box_count,len(table_rows)))
-        output.setHorizontalHeaderLabels(QtCore.QString("Product ID;Dimensions;Opening Area;Volume").split(';'))
-        for ii in xrange(min(box_count,len(table_rows))):
+        output.setHorizontalHeaderLabels("Product ID;Dimensions;Opening Area;Volume".split(';'))
+        for ii in range(min(box_count,len(table_rows))):
             output.setItem(ii,0,table_rows[ii][0])
             output.setItem(ii,1,table_rows[ii][1])
             output.setItem(ii,2,table_rows[ii][2])
             output.setItem(ii,3,table_rows[ii][3])
-        output.horizontalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
+        #make it fill the width
+        output.horizontalHeader().setSectionResizeMode(0,QtWidgets.QHeaderView.Stretch)
+        output.horizontalHeader().setSectionResizeMode(1,QtWidgets.QHeaderView.Stretch)
+
         
     def FindBoxes(self):
-        print 'finding boxes that fit'
+        print('finding boxes that fit')
         box_count=int(str(self.box_count.text()))
         obj_dim=list()
         obj_dim.append(float(str(self.input_length.text())))
@@ -298,13 +300,23 @@ class BoxFinder(QtGui.QWidget):
         #webbrowser.open('https://google.com/')
     
     def OpenPage(self,item):
-        print str(item.text())
+        print(str(item.text()))
         webbrowser.open('http://www.serviceboxandtape.com/pc_product_detail.asp?key='+str(item.text()))
-            
+
+#dummy class that allows costs to sort the way I want
+class FloatTableWidgetItem(QtWidgets.QTableWidgetItem):
+    def __init__(self, number):
+        QtWidgets.QTableWidgetItem.__init__(self,str(number),QtWidgets.QTableWidgetItem.UserType)
+        self.sort_key=number
+    def __lt__(self,other):
+        try:
+            return float(self.sort_key)<float(other.sort_key)
+        except:
+            return self.sort_key<other.sort_key
     
     
 def main():
-    app=QtGui.QApplication(sys.argv)
+    app=QtWidgets.QApplication(sys.argv)
     ex=BoxFinder()
     sys.exit(app.exec_())
     
